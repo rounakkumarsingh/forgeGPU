@@ -12,7 +12,8 @@ Build AI apps without paying for always-on GPUs.
 - **Auto-Provisioning**: Automatically launches GPUs when requests arrive.
 - **Smart Routing**: Handles cold starts by queuing or waiting for readiness.
 - **Idle Shutdown**: Automatically destroys instances after a configurable timeout to save costs.
-- **Vendor Agnostic**: Standardized interface for multiple GPU providers.
+- **Built-in Dashboard**: Modern React UI to monitor status, history, and stats.
+- **SQLite Logging**: Persistent request history and usage analytics.
 - **Redis-Backed**: Atomic state management and distributed locking.
 
 ---
@@ -36,29 +37,35 @@ Build AI apps without paying for always-on GPUs.
    MODEL_HEALTH_URL=/health
    ```
 
-3. **Run the server**:
+3. **Build the UI**:
+   ```bash
+   bun run build:ui
+   ```
+
+4. **Run the server**:
    ```bash
    bun run index.ts
    ```
 
 ---
 
+## 🖥️ Web Dashboard
+
+ForgeGPU comes with a built-in management dashboard. After starting the server, access it at:
+`http://localhost:3000`
+
+**Features:**
+- **Live Status**: Real-time monitoring of your GPU instance.
+- **Usage Stats**: View total requests and average latency.
+- **History**: Full audit log of all proxied requests.
+- **Dark Mode**: Modern, developer-focused interface.
+
+---
+
 ## 📖 Usage Guide
 
 ### 1. Chat Completions (OpenAI Compatible)
-You can use ForgeGPU as a transparent proxy for your LLM. When you send a request, ForgeGPU will check if a GPU is available. If not, it will provision one, wait for it to be healthy, and then forward your request.
-
-**Using curl:**
-```bash
-curl http://localhost:3000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-forge-api-key" \
-  -d '{
-    "model": "your-model-name",
-    "messages": [{"role": "user", "content": "Hello, how are you?"}],
-    "stream": true
-  }'
-```
+ForgeGPU acts as a transparent proxy. If the GPU is off, it will provision one automatically before forwarding your request.
 
 **Using OpenAI SDK (Python):**
 ```python
@@ -76,31 +83,13 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-### 2. Admin Monitoring
-Monitor the current state of your GPU infrastructure.
+### 2. Admin API
+Programmatic access to the ForgeGPU state.
 
 **Check Status:**
 ```bash
 curl http://localhost:3000/admin/status \
   -H "Authorization: Bearer your-forge-api-key"
-```
-
-**Response Example:**
-```json
-{
-  "state": {
-    "id": "vast-instance-x8k2p",
-    "provider": "vast",
-    "status": "READY",
-    "ip": "123.45.67.89",
-    "port": 8000
-  },
-  "lastRequest": "2024-05-20T10:00:00.000Z",
-  "config": {
-    "vendor": "vast",
-    "idleTimeoutMinutes": 15
-  }
-}
 ```
 
 ---
@@ -124,25 +113,17 @@ curl http://localhost:3000/admin/status \
 
 ForgeGPU is built with a decoupled architecture:
 - **API Layer**: Hono server handling requests, auth, and proxying.
-- **Router Layer**: Decision engine that manages the lifecycle (Ready -> Start -> Wait).
-- **State Manager**: Uses Redis for distributed state and locking to prevent race conditions.
-- **Vendor Layer**: Generic interface (`GPUVendor`) to support any cloud provider.
-- **Workers**: Background processes that monitor idle time and perform cleanup.
+- **Router Layer**: Decision engine that manages the lifecycle.
+- **State Manager**: Redis-based synchronization.
+- **Persistence**: SQLite database for logging and analytics.
+- **Frontend**: React SPA built with TanStack Router/Query.
+- **Workers**: Background processes for monitoring and cleanup.
 
 ---
 
 ## 🛠️ Adding a New Vendor
 
-To add a new GPU provider, implement the `GPUVendor` interface in `src/vendors/` and register it in `src/vendors/factory.ts`.
-
-```typescript
-export interface GPUVendor {
-  createInstance(config: VendorConfig): Promise<InstanceInfo>;
-  destroyInstance(id: string): Promise<void>;
-  getInstanceStatus(id: string): Promise<GPUState>;
-  getEndpoint(instance: InstanceInfo): Promise<string>;
-}
-```
+Implement the `GPUVendor` interface in `src/vendors/` and register it in `src/vendors/factory.ts`.
 
 ---
 
